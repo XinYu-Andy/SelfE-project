@@ -173,7 +173,74 @@
 
     /* Hide citation when disabled */
     .hidden-by-flag { display: none; }
-  </style>
+
+    /* Any-step auto-scrolling strip (below teaser) */
+    .strip-step-btn{
+      transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+    .strip-step-btn.is-active{
+      background: rgba(37,99,235,0.10);
+      border-color: rgba(37,99,235,0.28);
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+
+    .strip-viewport{
+      --strip-h: 150px;
+      overflow: hidden;
+      width: 100%;
+    }
+    @media (min-width: 768px){
+      .strip-viewport{ --strip-h: 170px; }
+    }
+
+    .strip-track{
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: max-content;
+      will-change: transform;
+      transform: translateX(0);
+      animation: none;
+    }
+
+    .strip-track.is-looping{
+      animation: stripScrollLeft var(--strip-dur, 28s) linear infinite;
+    }
+
+    .strip-track.is-paused{
+      animation-play-state: paused;
+    }
+
+    
+
+    @keyframes stripScrollLeft{
+      from{ transform: translateX(0); }
+      to{ transform: translateX(calc(-1 * var(--strip-dist, 50%))); }
+    }
+
+    .strip-item{
+      flex: 0 0 auto;
+      height: var(--strip-h);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .strip-item img{
+      height: var(--strip-h);
+      width: auto;
+      display: block;
+      border-radius: 0; /* keep original square corners */
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .strip-track.is-looping{ animation: none !important; }
+    }
+</style>
 </head>
 
 <body id="top" class="selection:bg-brand-100 selection:text-gray-900">
@@ -231,7 +298,7 @@
 
             <div class="mt-2 text-xs text-gray-500 leading-relaxed">
               <div><sup>1</sup>The University of Hong Kong &nbsp;&nbsp; <sup>2</sup>Adobe Research</div>
-              <div><sup>*</sup>Project lead. &nbsp;&nbsp; <sup>†</sup>Corresponding authors.</div>
+              <div><sup>*</sup>Corresponding author. &nbsp;&nbsp; <sup>†</sup>Project lead.</div>
             </div>
           </div>
 
@@ -250,6 +317,28 @@
               Figure 1. One model, any compute: Self-E generates coherent images at 2, 4, 8, and 50 steps.
             </figcaption>
           </figure>
+
+          <!-- Any-step auto-scrolling strip (square + wide images) -->
+          <div class="mt-5 md:mt-6">
+            <div class="ui-sans flex flex-wrap items-center justify-between gap-3">
+              <div class="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white p-1">
+                <button type="button" class="strip-step-btn px-3 py-1.5 rounded-full text-sm text-gray-700" data-strip-step="2">2-step</button>
+                <button type="button" class="strip-step-btn px-3 py-1.5 rounded-full text-sm text-gray-700" data-strip-step="4">4-step</button>
+                <button type="button" class="strip-step-btn px-3 py-1.5 rounded-full text-sm text-gray-700" data-strip-step="8">8-step</button>
+                <button type="button" class="strip-step-btn px-3 py-1.5 rounded-full text-sm text-gray-700" data-strip-step="50">50-step</button>
+              </div>
+              <div class="text-xs text-gray-500">Hover or tap an image to preview its prompt</div>
+            </div>
+
+            <div class="mt-3 strip-viewport" id="stripViewport" aria-label="Any-step sample strip">
+              <div class="strip-track" id="stripTrack"></div>
+            </div>
+
+            <p id="stripPrompt" class="ui-sans mt-3 text-sm text-gray-600 mb-0">
+              Hover (or tap) an image to view its text prompt.
+            </p>
+          </div>
+
         </div>
       </header>
 
@@ -305,8 +394,23 @@
               <span class="font-semibold">What it learns:</span> global correctness of the generated sample, i.e., whether a landed output is realistic and prompt-consistent.
               Instead of constraining the intermediate generation path, self-evaluation directly targets global distribution matching by treating the model output as a sample from its implicit distribution and pushing it toward the real data distribution.
               After the model proposes a long-range jump, it uses its own local estimator at the landing point to produce a direction signal that indicates how the current sample should move toward a better, more prompt-consistent region.
-              In most of our training, this direction is the classifier free signal computed from conditional and unconditional predictions, which we find stable and effective for improving text to image alignment.
-              Later, we incorporate an additional fake score signal that more directly supports distribution matching.
+              In most of our training, this direction is the <a
+              href="https://arxiv.org/pdf/2310.19415"
+              target="_blank"
+              rel="noreferrer"
+              style="text-decoration: underline; text-underline-offset: 3px;"
+              >
+              classifier-score
+              </a>
+              computed from conditional and unconditional predictions, which we find stable and effective for improving text to image alignment.
+              Later, we incorporate an additional <a
+              href="https://arxiv.org/pdf/2311.18828"
+              target="_blank"
+              rel="noreferrer"
+              style="text-decoration: underline; text-underline-offset: 3px;"
+              >
+              fake-score
+              </a> that more directly supports distribution matching.
             </p>
           </div>
 
@@ -454,13 +558,13 @@
               <svg id="genevalOverallChart" viewBox="0 0 520 280" class="w-full h-[280px]" role="img" aria-label="GenEval Overall vs steps"></svg>
 
               <div class="ui-sans mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-600">
-                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#a1a1aa"></span>SDXL</span>
-                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#14b8a6"></span>FLUX.1-Dev</span>
-                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#64748b"></span>LCM</span>
-                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#0ea5e9"></span>SANA-1.5</span>
-                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#6366f1"></span>TiM</span>
-                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#06b6d4"></span>SDXL-Turbo</span>
-                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#8b5cf6"></span>SD3.5-Turbo</span>
+                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#9ca3af"></span>SDXL</span>
+                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#10b981"></span>FLUX.1-Dev</span>
+                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#f97316"></span>LCM</span>
+                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#10b981"></span>SANA-1.5</span>
+                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#ec4899"></span>TiM</span>
+                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#ef4444"></span>SDXL-Turbo</span>
+                <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#ec4899"></span>SD3.5-Turbo</span>
                 <span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:var(--brand)"></span>Self-E</span>
               </div>
 
@@ -475,26 +579,41 @@
                   const pad = { l: 56, r: 18, t: 18, b: 44 };
 
                   const steps = [2, 4, 8, 50];
+
+                  // We use a piecewise axis mapping to make the lower range denser and the upper range sparser,
+                  // so differences near the top (e.g., 8/50-step) are easier to see.
                   const yMin = 0.0;
                   const yMax = 0.85;
+                  const splitVal = 0.60;   // split between "dense bottom" and "expanded top"
+                  const splitFrac = 0.28;  // fraction of axis height allocated to [yMin, splitVal]
 
                   const brand = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim() || '#2563eb';
+
+                  // High-contrast palette + styles. All baselines are dashed; Self-E is solid and thicker.
                   const series = [
-                    { name: 'SDXL', color: '#a1a1aa', values: [0.0021, 0.1576, 0.3759, 0.4601] },
-                    { name: 'FLUX.1-Dev', color: '#14b8a6', values: [0.0998, 0.3198, 0.5893, 0.7966] },
-                    { name: 'LCM', color: '#64748b', values: [0.2624, 0.3277, 0.3398, 0.3303] },
-                    { name: 'SANA-1.5', color: '#0ea5e9', values: [0.1662, 0.5725, 0.7788, 0.8062] },
-                    { name: 'TiM', color: '#6366f1', values: [0.6338, 0.6867, 0.7143, 0.7797] },
-                    { name: 'SDXL-Turbo', color: '#06b6d4', values: [0.4622, 0.4766, 0.4652, 0.3983] },
-                    { name: 'SD3.5-Turbo', color: '#8b5cf6', values: [0.3635, 0.7194, 0.7071, 0.6114] },
-                    { name: 'Self-E', color: brand, values: [0.7531, 0.7806, 0.7849, 0.8151], width: 3.2 },
+                    { name: 'SDXL',        color: '#9ca3af', dash: '6,4', values: [0.0021, 0.1576, 0.3759, 0.4601] },
+                    { name: 'FLUX.1-Dev',  color: '#0ea5e9', dash: '6,4', values: [0.0998, 0.3198, 0.5893, 0.7966] },
+                    { name: 'LCM',         color: '#f97316', dash: '6,4', values: [0.2624, 0.3277, 0.3398, 0.3303] },
+                    { name: 'SANA-1.5',    color: '#10b981', dash: '6,4', values: [0.1662, 0.5725, 0.7788, 0.8062] },
+                    { name: 'TiM',         color: '#8b5cf6', dash: '6,4', values: [0.6338, 0.6867, 0.7143, 0.7797] },
+                    { name: 'SDXL-Turbo',  color: '#ef4444', dash: '6,4', values: [0.4622, 0.4766, 0.4652, 0.3983] },
+                    { name: 'SD3.5-Turbo', color: '#ec4899', dash: '6,4', values: [0.3635, 0.7194, 0.7071, 0.6114] },
+                    { name: 'Self-E',      color: brand,     dash: null,  values: [0.7531, 0.7806, 0.7849, 0.8151], width: 3.4 },
                   ];
 
                   const x = (i) => pad.l + (i * (width - pad.l - pad.r)) / (steps.length - 1);
-                  const y = (v) => {
-                    const t = (v - yMin) / (yMax - yMin);
-                    return pad.t + (1 - t) * (height - pad.t - pad.b);
+
+                  // v -> normalized y in [0,1] with piecewise linear mapping
+                  const yNorm = (v) => {
+                    if (v <= splitVal) {
+                      const t = (v - yMin) / (splitVal - yMin);
+                      return Math.max(0, Math.min(1, t)) * splitFrac;
+                    }
+                    const t = (v - splitVal) / (yMax - splitVal);
+                    return splitFrac + Math.max(0, Math.min(1, t)) * (1 - splitFrac);
                   };
+
+                  const y = (v) => pad.t + (1 - yNorm(v)) * (height - pad.t - pad.b);
 
                   const add = (tag, attrs) => {
                     const el = document.createElementNS(NS, tag);
@@ -503,9 +622,16 @@
                     return el;
                   };
 
+                  // Clear
                   while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-                  const yTicks = [0.0, 0.2, 0.4, 0.6, 0.8];
+                  const fmtTick = (t) => {
+                    const tenth = Math.round(t * 10) / 10;
+                    return Math.abs(t - tenth) < 1e-9 ? tenth.toFixed(1) : t.toFixed(2);
+                  };
+
+                  // Grid + y labels (denser at the bottom, finer near the top)
+                  const yTicks = [0.0, 0.2, 0.4, 0.6, 0.70, 0.75, 0.80, 0.85];
                   yTicks.forEach((t) => {
                     const yy = y(t);
                     add('line', { x1: pad.l, y1: yy, x2: width - pad.r, y2: yy, stroke: '#e4e4e7', 'stroke-width': 1 });
@@ -517,12 +643,14 @@
                       'font-size': 10,
                       'font-family': 'Inter, sans-serif',
                     });
-                    txt.textContent = t.toFixed(1);
+                    txt.textContent = fmtTick(t);
                   });
 
+                  // Axes
                   add('line', { x1: pad.l, y1: pad.t, x2: pad.l, y2: height - pad.b, stroke: '#d4d4d8', 'stroke-width': 1 });
                   add('line', { x1: pad.l, y1: height - pad.b, x2: width - pad.r, y2: height - pad.b, stroke: '#d4d4d8', 'stroke-width': 1 });
 
+                  // x labels
                   steps.forEach((s, i) => {
                     const xx = x(i);
                     add('line', { x1: xx, y1: height - pad.b, x2: xx, y2: height - pad.b + 4, stroke: '#d4d4d8', 'stroke-width': 1 });
@@ -537,8 +665,12 @@
                     txt.textContent = String(s);
                   });
 
+                  // Series
                   series.forEach((s) => {
-                    const d = s.values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(2)} ${y(v).toFixed(2)}`).join(' ');
+                    const d = s.values
+                      .map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(2)} ${y(v).toFixed(2)}`)
+                      .join(' ');
+
                     add('path', {
                       d,
                       fill: 'none',
@@ -546,22 +678,25 @@
                       'stroke-width': s.width || 2,
                       'stroke-linecap': 'round',
                       'stroke-linejoin': 'round',
-                      opacity: s.name === 'Self-E' ? 1 : 0.85,
+                      ...(s.dash ? { 'stroke-dasharray': s.dash } : {}),
+                      opacity: s.name === 'Self-E' ? 1 : 0.88,
                     });
 
+                    // Markers
                     s.values.forEach((v, i) => {
                       add('circle', {
                         cx: x(i),
                         cy: y(v),
-                        r: s.name === 'Self-E' ? 3.2 : 2.2,
+                        r: s.name === 'Self-E' ? 3.4 : 2.4,
                         fill: s.color,
                         stroke: '#ffffff',
                         'stroke-width': 1,
-                        opacity: s.name === 'Self-E' ? 1 : 0.9,
+                        opacity: s.name === 'Self-E' ? 1 : 0.95,
                       });
                     });
                   });
 
+                  // Axis labels
                   const ylab = add('text', {
                     x: pad.l,
                     y: pad.t - 6,
@@ -630,7 +765,9 @@
 
             <div class="md:col-span-5">
               <div class="rounded-lg bg-gray-50 border border-gray-100 p-4">
-                <img src="gif1.gif" class="w-full h-auto max-h-[260px] object-contain rounded bg-white border border-gray-100" alt="Diffusion training animation" loading="lazy" />
+                <div class="relative">
+                  <img src="gif1.gif" class="w-full h-auto max-h-[260px] object-contain rounded bg-white border border-gray-100" alt="Diffusion training animation" loading="lazy" />
+                </div>
                 <p class="ui-sans mt-3 text-xs text-gray-500 mb-0">
                   Animation over training iterations: the model is updated so its prediction aligns with the fixed local target; the dashed arrow indicates the update direction.
                 </p>
@@ -681,7 +818,9 @@
 
             <div class="md:col-span-5">
               <div class="rounded-lg bg-gray-50 border border-gray-100 p-4">
-                <img src="gif2.gif" class="w-full h-auto max-h-[260px] object-contain rounded bg-white border border-gray-100" alt="Self-E training animation" loading="lazy" />
+                <div class="relative">
+                  <img src="gif2.gif" class="w-full h-auto max-h-[260px] object-contain rounded bg-white border border-gray-100" alt="Self-E training animation" loading="lazy" />
+                </div>
                 <p class="ui-sans mt-3 text-xs text-gray-500 mb-0">
                   Animation over training iterations: the model proposes a long-range jump, is evaluated at the landed point, and is updated using a feedback direction toward a better target.
                 </p>
@@ -771,6 +910,9 @@
     </main>
   </div>
 
+  <!-- Gallery data (edit strip_data.js only) -->
+  <script src="strip_data.js"></script>
+
   <!-- Enable/disable citation + TOC entry -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -784,6 +926,251 @@
       } else {
         if (citationSection) citationSection.classList.add('hidden-by-flag');
         if (citationToc) citationToc.style.display = 'none';
+      }
+
+      // Any-step strip: one-row, fixed height, keep aspect ratio, auto-loop when overflow.
+      const STRIP_DATA = window.SELFE_STRIP_DATA;
+      if (!STRIP_DATA) {
+        console.warn('[Self-E] window.SELFE_STRIP_DATA is not defined. Please edit strip_data.js.');
+      }
+
+      const stripViewport = document.getElementById('stripViewport');
+      const stripTrack = document.getElementById('stripTrack');
+      const stripPrompt = document.getElementById('stripPrompt');
+      const stripBtns = Array.from(document.querySelectorAll('.strip-step-btn'));
+
+      const STRIP_PLACEHOLDER =
+        'data:image/svg+xml;charset=utf-8,' +
+        encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600">
+          <rect width="100%" height="100%" fill="#f4f4f5"/>
+          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+            fill="#a1a1aa" font-size="28" font-family="Inter,Arial">Image placeholder</text>
+        </svg>`);
+
+      function setStripActive(step){
+        stripBtns.forEach(b => b.classList.toggle('is-active', b.dataset.stripStep === String(step)));
+      }
+
+      const STRIP_SPEED_PX_PER_SEC = 60;
+      const STRIP_DEFAULT_PROMPT = 'Hover (or tap) an image to view its text prompt.';
+      let stripRenderToken = 0;
+
+      const raf2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      function resetStrip(){
+        if (!stripTrack) return;
+        stripTrack.classList.remove('is-looping', 'is-paused');
+        stripTrack.style.setProperty('--strip-dur', '28s');
+        stripTrack.style.removeProperty('--strip-dist');
+      }
+
+      function buildStrip(step){
+        if (!stripTrack) return;
+
+        resetStrip();
+        stripTrack.innerHTML = '';
+
+        const items = (STRIP_DATA && STRIP_DATA[step]) ? STRIP_DATA[step] : [];
+        items.forEach((it) => {
+          const a = document.createElement('a');
+          a.href = it.src || '#';
+          a.className = 'strip-item';
+          a.dataset.prompt = it.prompt || '';
+
+          const img = document.createElement('img');
+          img.alt = 'Sample';
+          img.loading = 'eager';
+          img.decoding = 'async';
+          img.src = it.src || STRIP_PLACEHOLDER;
+          img.onerror = () => { img.src = STRIP_PLACEHOLDER; };
+
+          a.appendChild(img);
+          stripTrack.appendChild(a);
+        });
+      }
+
+      function lockStripItemWidths(){
+        if (!stripTrack) return;
+        const imgs = Array.from(stripTrack.querySelectorAll('.strip-item img'));
+        imgs.forEach((img) => {
+          const rect = img.getBoundingClientRect();
+          const w = rect.width;
+          if (w > 0){
+            img.style.width = `${w}px`;
+            const item = img.closest('.strip-item');
+            if (item) item.style.width = `${w}px`;
+          }
+        });
+      }
+
+      function getStripGapPx(){
+        if (!stripTrack) return 0;
+        const cs = getComputedStyle(stripTrack);
+        const raw = cs.columnGap || cs.gap || '0px';
+        const v = parseFloat(raw);
+        return Number.isFinite(v) ? v : 0;
+      }
+
+      async function waitForStripImages(token){
+        if (!stripTrack) return;
+        const isStale = () => token !== stripRenderToken;
+
+        const imgs = Array.from(stripTrack.querySelectorAll('img'));
+        await Promise.all(imgs.map(async (img) => {
+          if (isStale()) return;
+
+          const decodeIfPossible = async () => {
+            if (!img.decode) return;
+            try { await img.decode(); } catch (_) {}
+          };
+
+          if (img.complete){
+            await decodeIfPossible();
+            return;
+          }
+
+          await new Promise((resolve) => {
+            const done = () => resolve();
+            img.addEventListener('load', done, { once: true });
+            img.addEventListener('error', done, { once: true });
+          });
+
+          if (isStale()) return;
+          await decodeIfPossible();
+        }));
+      }
+
+      async function enableLoop(token){
+        if (!stripViewport || !stripTrack) return;
+        const isStale = () => token !== stripRenderToken;
+
+        // Wait until intrinsic image sizes are known; otherwise scrollWidth is unstable and looping won't start on first load.
+        await waitForStripImages(token);
+        if (isStale()) return;
+
+        // Give layout time to settle, then lock widths so clones don't depend on loading timing.
+        await raf2();
+        if (isStale()) return;
+        lockStripItemWidths();
+        await raf2();
+        if (isStale()) return;
+
+        const gapPx = getStripGapPx();
+        const viewWidth = stripViewport.clientWidth;
+
+        // Width of a single sequence (without the inter-sequence gap).
+        const sequenceWidth = stripTrack.scrollWidth;
+        if (sequenceWidth <= 0) return;
+
+        // Distance from the start of one sequence to the start of the next (includes the flex gap between sequences).
+        const dist = sequenceWidth + gapPx;
+
+        // Duplicate at least once for seamless looping.
+        const sequenceHTML = stripTrack.innerHTML;
+        stripTrack.innerHTML = sequenceHTML + sequenceHTML;
+
+        // If the sequence is short, add more copies so the viewport is always filled while moving.
+        const minTotalWidth = viewWidth + dist + 2;
+        let safety = 0;
+        while (!isStale() && stripTrack.scrollWidth < minTotalWidth && safety < 8){
+          stripTrack.innerHTML += sequenceHTML;
+          safety += 1;
+          await raf2();
+        }
+        if (isStale()) return;
+
+        // Constant px/s across steps (independent of number of images).
+        const dur = dist / STRIP_SPEED_PX_PER_SEC;
+
+        stripTrack.style.setProperty('--strip-dist', `${dist}px`);
+        stripTrack.style.setProperty('--strip-dur', `${Math.max(0.1, dur)}s`);
+        stripTrack.classList.add('is-looping');
+        stripTrack.classList.remove('is-paused');
+      }
+
+      async function renderStrip(step){
+        if (!stripViewport || !stripTrack || stripBtns.length === 0) return;
+
+        const token = ++stripRenderToken;
+
+        setStripActive(step);
+        if (stripPrompt) stripPrompt.textContent = STRIP_DEFAULT_PROMPT;
+
+        buildStrip(step);
+        await enableLoop(token);
+      }
+
+      // Prompt preview + pause-on-hover (mouse only; hover the image to pause)
+      if (stripTrack && stripPrompt && stripViewport){
+        const pause = () => {
+          if (stripTrack.classList.contains('is-looping')) stripTrack.classList.add('is-paused');
+        };
+        const resume = () => stripTrack.classList.remove('is-paused');
+
+        stripTrack.addEventListener('pointerover', (e) => {
+          if (e.pointerType && e.pointerType !== 'mouse') return;
+          const item = e.target.closest('.strip-item');
+          if (!item || !stripTrack.contains(item)) return;
+
+          pause();
+          const p = item.dataset.prompt || '';
+          stripPrompt.textContent = p || STRIP_DEFAULT_PROMPT;
+        });
+
+        stripTrack.addEventListener('pointerout', (e) => {
+          if (e.pointerType && e.pointerType !== 'mouse') return;
+          const fromItem = e.target.closest('.strip-item');
+          if (!fromItem || !stripTrack.contains(fromItem)) return;
+
+          const toEl = e.relatedTarget;
+          const toItem = (toEl && toEl.closest) ? toEl.closest('.strip-item') : null;
+
+          // Moving between items: keep paused; pointerover will update the prompt.
+          if (toItem && stripTrack.contains(toItem)) return;
+
+          resume();
+          stripPrompt.textContent = STRIP_DEFAULT_PROMPT;
+        });
+
+        stripViewport.addEventListener('pointerleave', (e) => {
+          if (e.pointerType && e.pointerType !== 'mouse') return;
+          resume();
+          stripPrompt.textContent = STRIP_DEFAULT_PROMPT;
+        });
+
+        // Tap/click to preview prompt (does not pause the strip).
+        stripTrack.addEventListener('click', (e) => {
+          const item = e.target.closest('.strip-item');
+          if (!item) return;
+          e.preventDefault();
+          const p = item.dataset.prompt || '';
+          stripPrompt.textContent = p || STRIP_DEFAULT_PROMPT;
+        });
+
+        // Keyboard accessibility.
+        stripTrack.addEventListener('focusin', (e) => {
+          const item = e.target.closest('.strip-item');
+          if (!item) return;
+          const p = item.dataset.prompt || '';
+          stripPrompt.textContent = p || STRIP_DEFAULT_PROMPT;
+        });
+      }
+
+      stripBtns.forEach((b) => b.addEventListener('click', () => renderStrip(String(b.dataset.stripStep))));
+
+      // Re-evaluate overflow on resize (debounced).
+      let stripResizeTimer = null;
+      window.addEventListener('resize', () => {
+        if (stripResizeTimer) window.clearTimeout(stripResizeTimer);
+        stripResizeTimer = window.setTimeout(() => {
+          const active = (stripBtns.find(b => b.classList.contains('is-active')) || stripBtns[0]);
+          if (active) renderStrip(String(active.dataset.stripStep));
+        }, 150);
+      });
+
+      // Default
+      if (stripViewport && stripTrack && stripBtns.length){
+        renderStrip('2');
       }
 
       // TOC active state
